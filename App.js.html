@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>JSDoc: Source: App.js</title>
+
+    <script src="scripts/prettify/prettify.js"> </script>
+    <script src="scripts/prettify/lang-css.js"> </script>
+    <!--[if lt IE 9]>
+      <script src="//html5shiv.googlecode.com/svn/trunk/html5.js"></script>
+    <![endif]-->
+    <link type="text/css" rel="stylesheet" href="styles/prettify-tomorrow.css">
+    <link type="text/css" rel="stylesheet" href="styles/jsdoc-default.css">
+</head>
+
+<body>
+
+<div id="main">
+
+    <h1 class="page-title">Source: App.js</h1>
+
+    
+
+
+
+    
+    <section>
+        <article>
+            <pre class="prettyprint source linenums"><code>/**
+ * @fileoverview Is in charge of rendering the website and let the users log in,
+ * create or join a game.
+ */
+
+/**
+ * Is in charge of rendering the website and let the users log in,
+ * create or join a game.
+ * @module App
+ */
+
+import './styles/Home.css'
+import axios from 'axios'
+import io from 'socket.io-client';
+import Game from "./Game.js"
+import logo from './Catan-logo-4.png'
+import React, { createContext, useEffect, useState } from 'react'
+
+import Cursor from './images/Cursor.png'
+
+import SoundOnIcon from './images/icons/sound_on.png'
+import SoundOffIcon from './images/icons/sound_off.png'
+import CatanSong0  from './audio/music/Catan_0.mp3'
+import CatanSong1  from './audio/music/Catan_1.mp3'
+import CatanSong2  from './audio/music/Catan_2.mp3'
+import CatanSong3  from './audio/music/Catan_3.mp3'
+import CatanSong4  from './audio/music/Catan_4.mp3'
+import CatanSong5  from './audio/music/Catan_5.mp3'
+import CatanSong6  from './audio/music/Catan_6.mp3'
+import CatanSong7  from './audio/music/Catan_7.mp3'
+import CatanSong8  from './audio/music/Catan_8.mp3'
+import CatanSong9  from './audio/music/Catan_9.mp3'
+import CatanSong10 from './audio/music/Catan_10.mp3'
+import CatanSong11 from './audio/music/Catan_11.mp3'
+import CatanSong12 from './audio/music/Catan_11.mp3'
+import CatanSong13 from './audio/music/Catan_11.mp3'
+import CatanSong14 from './audio/music/Catan_11.mp3'
+import CatanSong15 from './audio/music/Catan_11.mp3'
+import ButtonSound from './audio/effects/Click_0.mp3'
+
+/**
+ * Songs for the game.
+ */
+const Songs = [
+    CatanSong0,
+    CatanSong1,
+    CatanSong2,
+    CatanSong3,
+    CatanSong4,
+    CatanSong5,
+    CatanSong6,
+    CatanSong7,
+    CatanSong8,
+    CatanSong9,
+    CatanSong10,
+    CatanSong11,
+    CatanSong12,
+    CatanSong13,
+    CatanSong14,
+    CatanSong15
+]
+export const SocketContext = createContext();
+
+const {GameService} = require('./services/game.service')
+
+//import cbg0 from '../Catan-bg0.jpg'
+//import cbg1 from '../Catan-bg1.jpg'
+//import cbg2 from '../Catan-bg2.jpg'
+//import cbg3 from '../Catan-bg3.jpg'
+//import cbg4 from '../Catan-bg4.jpg'
+//var backgrounds = [cbg0, cbg1, cbg2, cbg3, cbg4]
+
+/**
+ * Generates a number between the given min and max.
+ * 
+ * @param {*} min Minimum number to generate.
+ * @param {*} max Maximum number to generate.
+ * @returns A number between the minimum and he maximum
+ */
+function random(min, max) {
+    return Math.floor(Math.random() * max) + min;
+}
+
+/**
+ * Creates a custom cursor for the game
+ * 
+ * @param {*} params The cursor image to use and the current mouse position. 
+ * @returns The custom cursor HTML element.
+ */
+const CustomCursor = ({ cursorImage, mousePosition }) => {
+
+    const cursorStyles = {
+        position: 'absolute',
+        top: mousePosition.y-5,
+        left: mousePosition.x-5,
+        width: '40px',
+        height: '40px',
+        backgroundImage: `url(${cursorImage})`,
+        backgroundSize: 'cover',
+        pointerEvents: 'none',
+        zIndex: 99999
+    };
+
+    document.body.style.cursor = 'none';
+
+    const maxCursorX = window.innerWidth - 43
+    if (cursorStyles.left > maxCursorX) {
+      cursorStyles.left = maxCursorX;
+    } else if (mousePosition.x &lt; 0) {
+      cursorStyles.left = 0;
+    }
+
+    const maxCursorY = window.innerHeight - 43
+    if (cursorStyles.top > maxCursorY) {
+        cursorStyles.top = maxCursorY
+    } else if (mousePosition.Y &lt; 0) {
+        cursorStyles.top = 0
+    }
+
+    // Hide default cursor on links and input elements
+    const hideCursorElements = document.querySelectorAll('a, input, textarea, button');
+    hideCursorElements.forEach(element => {
+        element.style.cursor = 'none';
+    });
+
+
+    return &lt;div style={cursorStyles} />;
+};
+
+/**
+ * App return function. Renders the site body and its elements.
+ * 
+ * @returns App HTML body.
+ */
+function App() {
+
+    //const [backgroundImg, setBackgroundImg] = useState(`url(${backgrounds[Math.floor(Math.random() * 5)]})`)
+    //useEffect(() => {
+    //    const intervalId = setInterval(() => {
+    //        setBackgroundImg(`url(${backgrounds[Math.floor(Math.random() * 5)]})`)
+    //    }, 5000);
+    //})
+
+    const [click] = useState(new Audio(ButtonSound))
+    const handleClick = () => {
+        click.currentTime = 0
+        click.play()
+    }
+    
+    const [audio, setAudio] = useState(new Audio(Songs[random(0, Songs.length)]))
+    const [isMuted, setIsMuted] = useState(true)
+    useEffect(() => {
+        if (!isMuted) {
+            audio.play()
+            audio.addEventListener("ended", handleAudioEnding);
+            return () => {
+                audio.removeEventListener("ended", handleAudioEnding);
+            };
+        } else {
+            audio.pause()
+        }
+    }, [audio, isMuted]);
+
+    const [activeMenu, setActiveMenu] = useState(JSON.parse(sessionStorage.getItem('active-menu')) || 'login')
+    const handleMenuChange = (menu) => {
+        sessionStorage.setItem('active-menu', JSON.stringify(menu))
+        setActiveMenu(menu);
+    }
+
+    const handleAudioEnding = () => {
+        setAudio(new Audio(Songs[random(0, Songs.length)]))
+    }
+
+    const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+
+    const onMouseMove = (e) => {
+      setMousePosition({ x: e.clientX, y: e.clientY });
+    };
+  
+    useEffect(() => {
+      window.addEventListener('mousemove', onMouseMove);
+  
+      return () => {
+        window.removeEventListener('mousemove', onMouseMove);
+      };
+    }, []);
+
+    const [errorMessage, setErrorMessage] = useState('')
+    // ========================================================================
+    // LOGIN STATE
+    // ========================================================================
+    function handleSubmit_Login(event) {
+
+        // Evita que el formulario se envíe de manera predeterminada
+        event.preventDefault(); 
+
+        // Aquí se pueden agregar otras validaciones de entrada antes de enviar el formulario
+        // Si algo no es válido, se puede detener la ejecución de esta función o mostrar un mensaje de error
+        const user = {
+            name: '',
+            accessToken: ''
+        };
+
+        // Obtiene la referencia del formulario que se envió
+        const form = document.getElementById('login');
+        // Crea una instancia de FormData para los valores de los campos de entrada
+        const formData = new FormData(form);
+        // Crea un diccionario con los campos del formulario.
+        const plainFormData = Object.fromEntries(formData.entries());
+    
+        // Enviar los datos del formulario a través de una solicitud
+        let email    = plainFormData.email;
+        let password = plainFormData.password;
+        axios.post('http://localhost:8080/api/login', {
+            email,
+            password
+        })
+        .then((response) => {
+            if (response.data.accessToken) {
+                user.name        = response.data.username;
+                user.accessToken = response.data.accessToken;
+                sessionStorage.setItem('user', JSON.stringify(user))
+                console.log("NEW LOGIN: ", response.data, user)
+                handleMenuChange('main-menu')
+            } else {
+                return response.json().then(err => { throw new Error(err.error.message) })
+            }
+        })
+        .catch((error) => {
+            console.log(error.response.data);
+            setErrorMessage(error.toString());
+        })
+    }
+
+    // ========================================================================
+    // REGISTER STATE
+    // ========================================================================
+    function handleSubmit_Register(event) {
+
+        // Evita que el formulario se envíe de manera predeterminada
+        event.preventDefault();
+
+        // Aquí se pueden agregar otras validaciones de entrada antes de enviar el formulario
+        // Si algo no es válido, se puede detener la ejecución de esta función o mostrar un mensaje de error
+        const user = {
+            name: '',
+            accessToken: ''
+        };
+
+        // Obtiene la referencia del formulario que se envió
+        const form = document.getElementById('register');
+        // Crea una instancia de FormData para los valores de los campos de entrada
+        const formData = new FormData(form);
+        // Crea un diccionario con los campos del formulario.
+        const plainFormData = Object.fromEntries(formData.entries());
+
+        let username         = plainFormData.username;
+        let email            = plainFormData.email;
+        let password         = plainFormData.password;
+        let confirm_password = plainFormData.confirm_password;
+        if (password !== confirm_password) {
+            setErrorMessage("Passwords must coincide.")
+            return
+        }
+
+        // Enviar los datos del formulario a través de una solicitud
+        axios.post('http://localhost:8080/api/register', {
+            username,
+            email,
+            password,
+            confirm_password
+        })
+        .then((response) => {
+            if (response.data.accessToken) {
+                user.name        = username;
+                user.accessToken = response.data.accessToken;
+                sessionStorage.setItem('user', JSON.stringify(user));
+                console.log("NEW REGISTER: ", response.data, user)
+                handleMenuChange('main-menu')
+            } else {
+                return response.json().then(err => { throw new Error(err.error.message) })
+            }
+        })
+        .catch((error) => {
+            console.log(error.response.data);
+            setErrorMessage(error.toString());
+        })
+    }
+
+    // ========================================================================
+    // MAIN MENU STATE
+    // ========================================================================
+    // New game action:
+    const [socket, setSocket] = useState(null)
+    const [lobby, setLobby]   = useState([]);
+    const [gameChanged, setGameChanged] = useState(false)
+
+    async function handleSubmit_NewGame(event) {
+        // Evita que el formulario se envíe de manera predeterminada
+        event.preventDefault();
+        let data = await GameService.create()
+        if (data.status === 'success') {
+            console.log("NEW GAME: ", data)
+
+            setLobby( [JSON.parse(sessionStorage.getItem('user')).name])
+            
+            sessionStorage.setItem('game-token', JSON.stringify(data.codigo_partida))
+            navigator.clipboard.writeText(data.codigo_partida);
+            alert("Copied game code: " + data.codigo_partida);
+
+            // Creacion y configuracion del nuevo socket:
+            let socket = io('http://localhost:8080/')
+            socket.on('error', (err) => { console.log('SOCKET ERROR: ', err)})
+            socket.on('new_player', (socket_data) => {
+                setLobby(prevStatus => {
+                    const nextStatus = [...prevStatus]
+                    nextStatus.push(socket_data.username);
+                    return nextStatus
+                })
+            })
+            socket.on('update', (game) => {
+                sessionStorage.setItem('game', JSON.stringify(game))
+                setGameChanged(prevStatus => {
+                    return !prevStatus
+                })
+                console.log("LA PARTIDA/TABLERO: ", game)
+                handleMenuChange('game') // Redirigir a la página de juego
+            });
+            socket.emit('joinGame', JSON.parse(sessionStorage.getItem('user')).accessToken, data.codigo_partida)
+            setSocket(socket)
+            // Cambiar al conexto del Game lobby
+            handleMenuChange('game-lobby')
+
+            sessionStorage.setItem('my-turn', 0)
+
+
+            // Persistencia de datos para el juego
+            sessionStorage.setItem('build-mode', false)
+            sessionStorage.setItem('knight-mode', false)
+            sessionStorage.setItem('build-roads', false)
+            sessionStorage.setItem('monopoly-mode', false)
+            sessionStorage.setItem('year-of-plenty-mode', false)
+            sessionStorage.setItem('throw-dices', false)
+            sessionStorage.setItem('has-to-build', [true, false])
+            sessionStorage.setItem('change-mode', false)
+        }
+    }
+
+    // Join game action:
+    const [gamecodeInput, setGamecodeInput] = useState('');
+    const handleChange = (event) => {
+        const input = event.target.value;
+        const numbers = /^[0-9]*$/; // expresión regular para solo aceptar números
+        if (input.match(numbers) &amp;&amp; input.length &lt;= 6) {
+            setGamecodeInput(input);
+        }
+    };
+
+    async function handleSubmit_JoinGame(event) {
+        // Evita que el formulario se envíe de manera predeterminada
+        event.preventDefault();
+        // Obtiene la referencia del formulario que se envió
+        const form = document.getElementById('join-game');
+        // Crea una instancia de FormData para los valores de los campos de entrada
+        const formData = new FormData(form);
+        // Crea un diccionario con los campos del formulario.
+        const plainFormData = Object.fromEntries(formData.entries());
+
+        let gamecode = plainFormData.gamecode, data = await GameService.join(gamecode)
+        sessionStorage.setItem('game-token', JSON.stringify(gamecode))
+        setLobby([null, null, null, null, 0, 'guest'])
+        console.log("JOINING GAME DATA: ", data)
+        if (data.status === 'success') {
+            // Creacion y configuracion del nuevo socket:
+            let socket   = io('http://localhost:8080/')
+            socket.on('error', (err) => { console.log('SOCKET ERROR:', err) })
+            socket.on('new_player', (socket_data) => {
+                setLobby(prevStatus => {
+                    const nextStatus = [...prevStatus]
+                    nextStatus.push(socket_data.username);
+                    return nextStatus
+                })
+            })
+            socket.on('update', (game) => {
+                sessionStorage.setItem('game', JSON.stringify(game))
+                setGameChanged(prevStatus => {
+                    return !prevStatus
+                })
+                console.log("LA PARTIDA/TABLERO: ", game)
+                handleMenuChange('game') // Redirigir a la página de juego
+            });
+            socket.emit('joinGame', JSON.parse(sessionStorage.getItem('user')).accessToken, gamecode)
+            setSocket(socket)
+
+            // Configuración de los nuevos jugadores:
+            setLobby(data.jugadores)
+            // Cambiar al conexto del Game lobby:
+            setActiveMenu('game-lobby')
+            
+            sessionStorage.setItem('my-turn', data.jugadores.findIndex(curr_player => curr_player === JSON.parse(sessionStorage.getItem('user')).name))
+
+            // Persistencia de datos para el juego
+            sessionStorage.setItem('build-mode', false)
+            sessionStorage.setItem('knight-mode', false)
+            sessionStorage.setItem('build-roads', false)
+            sessionStorage.setItem('monopoly-mode', false)
+            sessionStorage.setItem('year-of-plenty-mode', false)
+            sessionStorage.setItem('throw-dices', false)
+            sessionStorage.setItem('has-to-build', [true, false])
+            sessionStorage.setItem('change-mode', false)
+        } 
+    }
+
+    const gameExit = (newMenu) => {
+        console.log('Cambio de modo')
+        setActiveMenu(newMenu); // Función para actualizar activeMenu
+    };
+
+    // ========================================================================
+    // GAME
+    // ========================================================================
+    //&lt;CustomCursor cursorImage={Cursor} mousePosition={mousePosition} />
+    return (
+        &lt;SocketContext.Provider value={socket}>
+            &lt;div>
+            
+            &lt;img src={(isMuted) ? SoundOffIcon : SoundOnIcon} className='music-button' alt='change-music-status' onClick={() => setIsMuted(prevStatus => { return !prevStatus})}>&lt;/img>
+            {activeMenu !== 'game' ?
+                &lt;div className='common-header'>
+                    &lt;div className='error-container'>
+                        {errorMessage &amp;&amp; (
+                            &lt;p style={{color: 'red', textAlign: 'center'}}> {errorMessage} &lt;/p>
+                        )}
+                    &lt;/div>
+
+                    &lt;div className='common-container | flex-column-center-center'>
+                        &lt;img src={logo} className='common-logo' alt='catan-logo'>&lt;/img>
+                        {activeMenu === 'login' &amp;&amp; (
+                            &lt;div className='common-content-container | flex-column-center-center'>
+                                &lt;div id='Home-up-form' className='flex-column-center-center'>
+                                    &lt;form id='login' className='flex-column-center-center' onSubmit={handleSubmit_Login}>
+                                        &lt;input className='common-input' type="text" placeholder="Email" name='email' id='email' required />
+                                        &lt;input className='common-input' type="password" placeholder="Password" name='password' id='password' required />
+                                        &lt;button className='common-button | common-button-activated' type='submit' onClick={handleClick}>Log In&lt;/button>
+                                        &lt;a href='recover' id='forgor-password'>Did you forget your password?&lt;/a>
+                                    &lt;/form>
+                                &lt;/div>
+                                &lt;div id='Home-down-form'>
+                                    &lt;button className='common-button | common-button-activated' onClick={() => {handleClick(); handleMenuChange('register')}}>Register&lt;/button>
+                                    &lt;button className='common-button | common-button-activated' onClick={() => {handleClick(); handleMenuChange('main-menu')}}>Play without register&lt;/button>
+                                &lt;/div>
+                            &lt;/div>
+                        )}
+
+                        {activeMenu === 'register' &amp;&amp; (
+                            &lt;div className='common-content-container | flex-column-center-center'>
+                                &lt;div id='Home-up-form' className='flex-column-center-center'>
+                                    &lt;form id='register' className='flex-column-center-center' onSubmit={handleSubmit_Register}>
+                                        &lt;input className='common-input' type="text" placeholder="Email" name='email' id='email' required />
+                                        &lt;input className='common-input' type="text" placeholder="Username" name='username' id='username' required />
+                                        &lt;input className='common-input' type="password" placeholder="Password" name='password' id='password' required />
+                                        &lt;input className='common-input' type="password" placeholder="Repeat password" name='confirm_password' id='confirm_password' required />
+                                        &lt;button className='common-button | common-button-activated' type='submit' onClick={handleClick}>Register&lt;/button>
+                                    &lt;/form>
+                                &lt;/div>
+                                &lt;div id='Home-down-form'>
+                                    &lt;button className='common-button | common-button-activated' onClick={() => {handleClick(); handleMenuChange('login')} }>Log in&lt;/button>
+                                    &lt;button className='common-button | common-button-activated' onClick={() => {handleClick(); handleMenuChange('main-menu')}}>Play without register&lt;/button>
+                                &lt;/div>
+                            &lt;/div>
+                        )}
+
+                        {activeMenu === 'main-menu' &amp;&amp; (
+                            &lt;div className='common-content-container | flex-column-center-center'>
+                                &lt;button className='common-button | common-button-activated' onClick={(event) => { handleClick(); handleSubmit_NewGame(event) }}>New game&lt;/button>
+                                &lt;button className='common-button | common-button-activated' onClick={() => { handleClick(); handleMenuChange('join-game') }}>Join game&lt;/button>
+                                &lt;button className='common-button | common-button-deactivated'>Find a game&lt;/button>
+                                &lt;button className='common-button | common-button-activated' onClick={() => { handleClick(); handleMenuChange('login') } }>Return&lt;/button>
+                            &lt;/div>
+                        )}
+
+                        {activeMenu === 'game-lobby' &amp;&amp; (
+                            &lt;div className='common-content-container | flex-column-center-center'>
+                                &lt;h2 id='game-code'>{JSON.parse(sessionStorage.getItem('game-token'))}&lt;/h2>
+                                &lt;div className='waiting-player | flex-column-center-center'>
+                                    {lobby.length &lt; 1 ? (
+                                        &lt;section>
+                                            &lt;svg className="spinner" viewBox="0 0 16 18">
+                                                &lt;path className="path" fill="none" strokeWidth="2" d="M7.21487 1.2868C7.88431 0.9044 8.73031 0.9044 9.39974 1.2868L9.40283 1.28856L14.4613 4.20761C15.1684 4.598 15.5746 5.33558 15.5746 6.11465V8.99996V11.8853C15.5746 12.6507 15.1632 13.3848 14.4617 13.7721L9.37973 16.7132C8.71029 17.0956 7.86428 17.0956 7.19485 16.7132L7.19088 16.7109L2.11279 13.772C1.40602 13.3816 1 12.6441 1 11.8653V8.98995V6.11465C1 5.31458 1.44381 4.59039 2.10827 4.21051L7.21487 1.2868Z" />
+                                            &lt;/svg>
+                                        &lt;/section>
+                                    ) : (
+                                        &lt;div>{lobby[0]}&lt;/div>
+                                    )}
+                                &lt;/div>
+
+                                &lt;div className='waiting-player | flex-column-center-center'>
+                                    {lobby.length &lt; 2 ? (
+                                        &lt;section>
+                                            &lt;svg className="spinner" viewBox="0 0 16 18">
+                                                &lt;path className="path" fill="none" strokeWidth="2" d="M7.21487 1.2868C7.88431 0.9044 8.73031 0.9044 9.39974 1.2868L9.40283 1.28856L14.4613 4.20761C15.1684 4.598 15.5746 5.33558 15.5746 6.11465V8.99996V11.8853C15.5746 12.6507 15.1632 13.3848 14.4617 13.7721L9.37973 16.7132C8.71029 17.0956 7.86428 17.0956 7.19485 16.7132L7.19088 16.7109L2.11279 13.772C1.40602 13.3816 1 12.6441 1 11.8653V8.98995V6.11465C1 5.31458 1.44381 4.59039 2.10827 4.21051L7.21487 1.2868Z" />
+                                            &lt;/svg>
+                                        &lt;/section>
+                                    ) : (
+                                        &lt;div>{lobby[1]}&lt;/div>
+                                    )}
+                                &lt;/div>
+
+                                &lt;div className='waiting-player | flex-column-center-center'>
+                                    {lobby.length &lt; 3 ? (
+                                        &lt;section>
+                                            &lt;svg className="spinner" viewBox="0 0 16 18">
+                                                &lt;path className="path" fill="none" strokeWidth="2" d="M7.21487 1.2868C7.88431 0.9044 8.73031 0.9044 9.39974 1.2868L9.40283 1.28856L14.4613 4.20761C15.1684 4.598 15.5746 5.33558 15.5746 6.11465V8.99996V11.8853C15.5746 12.6507 15.1632 13.3848 14.4617 13.7721L9.37973 16.7132C8.71029 17.0956 7.86428 17.0956 7.19485 16.7132L7.19088 16.7109L2.11279 13.772C1.40602 13.3816 1 12.6441 1 11.8653V8.98995V6.11465C1 5.31458 1.44381 4.59039 2.10827 4.21051L7.21487 1.2868Z" />
+                                            &lt;/svg>
+                                        &lt;/section>
+                                    ) : (
+                                        &lt;div>{lobby[2]}&lt;/div>
+                                    )}
+                                &lt;/div>
+
+                                &lt;div className='waiting-player | flex-column-center-center'>
+                                    {lobby.length &lt; 4 ? (
+                                        &lt;section>
+                                            &lt;svg className="spinner" viewBox="0 0 16 18">
+                                                &lt;path className="path" fill="none" strokeWidth="2" d="M7.21487 1.2868C7.88431 0.9044 8.73031 0.9044 9.39974 1.2868L9.40283 1.28856L14.4613 4.20761C15.1684 4.598 15.5746 5.33558 15.5746 6.11465V8.99996V11.8853C15.5746 12.6507 15.1632 13.3848 14.4617 13.7721L9.37973 16.7132C8.71029 17.0956 7.86428 17.0956 7.19485 16.7132L7.19088 16.7109L2.11279 13.772C1.40602 13.3816 1 12.6441 1 11.8653V8.98995V6.11465C1 5.31458 1.44381 4.59039 2.10827 4.21051L7.21487 1.2868Z" />
+                                            &lt;/svg>
+                                        &lt;/section>
+                                    ) : (
+                                        &lt;div>{lobby[3]}&lt;/div>
+                                    )}
+                                &lt;/div>
+                                {lobby[0] === JSON.parse(sessionStorage.getItem('user')).name &amp;&amp; (
+                                    &lt;button className={lobby.length &lt; 4 ? 'common-button | common-button-deactivated' : 'common-button | common-button-activated'} onClick={() => { handleClick(); GameService.start(JSON.parse(sessionStorage.getItem('game-token')) );}}>Play&lt;/button>
+                                )}
+                                &lt;button className='common-button | common-button-activated' onClick={() => { handleClick(); handleMenuChange('main-menu')} }>Return&lt;/button>
+                            &lt;/div>
+                        )}
+
+                        {activeMenu === 'join-game' &amp;&amp; (
+                            &lt;div className='common-content-container | flex-column-center-center'>
+                                &lt;form id='join-game' className='flex-column-center-center' onSubmit={handleSubmit_JoinGame}>
+                                    &lt;input name='gamecode' id='gamecode' className='common-input' type="text" placeholder="Game code" value={gamecodeInput} maxLength={6} onChange={handleChange} required />
+                                    &lt;button className='common-button | common-button-activated' type='submit' onClick={handleClick}>Join&lt;/button>
+                                &lt;/form>
+                                &lt;button className='common-button | common-button-activated' onClick={() => { handleClick();handleMenuChange('main-menu')}}>Return&lt;/button>
+                            &lt;/div>
+                        )}
+                    &lt;/div>
+                &lt;/div>
+                :
+                &lt;Game gameChanged ={gameChanged} gameExit={gameExit} />
+            }
+            &lt;/div>
+        &lt;/SocketContext.Provider>
+    )
+}
+
+export default App;
+
+
+
+</code></pre>
+        </article>
+    </section>
+
+
+
+
+</div>
+
+<nav>
+    <h2><a href="index.html">Home</a></h2><h3>Modules</h3><ul><li><a href="module-App.html">App</a></li><li><a href="module-Game.html">Game</a></li></ul>
+</nav>
+
+<br class="clear">
+
+<footer>
+    Documentation generated by <a href="https://github.com/jsdoc/jsdoc">JSDoc 4.0.2</a> on Tue May 30 2023 12:51:55 GMT+0200 (hora de verano de Europa central)
+</footer>
+
+<script> prettyPrint(); </script>
+<script src="scripts/linenumber.js"> </script>
+</body>
+</html>
